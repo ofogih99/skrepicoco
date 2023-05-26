@@ -25,16 +25,17 @@ contract BirthdayPayout {
     function addTeammate(address account, string memory name, uint256 salary, uint256 birthday) public onlyOwner {
         require(msg.sender != account, "Cannot add oneself");
         Teammate memory newTeammate = Teammate(name, account, salary, birthday);  // Создание новой структуры сотрудника
-        _teammates.push(newTeammate);                     // Добавление нового сотрудника в массив
-        emit NewTeammate(account, name);                  // Эмиссия события для уведомления о добавлении нового сотрудника
+        _teammates.push(newTeammate);                     // Добавляем нового сотрудника в массив
+        emit NewTeammate(account, name);                  // Уведомления о добавлении нового сотрудника
     }
 
     function birthdayPayout() public onlyOwner {
         for (uint256 i = 0; i < _teammates.length; i++) {
             if (checkBirthday(i) && !_receivedGifts[_teammates[i].account]) {
                 sendToTeammate(i);
-                _receivedGifts[_teammates[i].account] = true;
-                emit HappyBirthday(_teammates[i].name, _teammates[i].account);
+                _receivedGifts[_teammates[i].account] = true; // Установка флага, что сотрудник получил подарок
+                emit HappyBirthday(_teammates[i].name, _teammates[i].account); // уведомления о подарке на день рождения
+        }
             }
         }
     }
