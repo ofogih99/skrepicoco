@@ -5,106 +5,76 @@ pragma solidity 0.8.0;
 import "./BokkyPooBahsDateTimeLibrary.sol";
 
 contract BirthdayPayout {
-
-// store name,address teammates
-// get name, addresses of teammates
-// send ether to address teammates on command only by owner
-
-    string _name;
-
-    address _owner;
-
-    Teammate[] public _teammates;
+    string private _name;                               // Приватная переменная для хранения названия контракта
+    address private _owner;                             // Приватная переменная для хранения адреса владельца контракта
+    mapping(address => bool) private _receivedGifts;    // Маппинг для отслеживания получили ли сотрудники подарок
+    Teammate[] private _teammates;                       // Массив для хранения информации о сотрудниках
 
     struct Teammate {
-        string name;
-        address account;
-        uint256 salary;
-        uint256 birthday;
+        string name;                                    // Имя сотрудника
+        address account;                                // Ethereum адрес сотрудника
+        uint256 salary;                                 // Сумма зарплаты для выплаты
+        uint256 birthday;                               // Таймстамп дня рождения сотрудника
     }
 
-    constructor() public {
-        _name="max";
+    constructor() {
+        _name = "max";
         _owner = msg.sender;
     }
 
-    function addTeammate(address account,string memory name, uint256 salary,uint256 birthday) public onlyOwner {
-        require(msg.sender != account,"Cannot add oneself");
-        Teammate memory newTeammate = Teammate(name,account,salary, birthday);
-        _teammates.push(newTeammate);
-        emit NewTeammate(account,name);
+    function addTeammate(address account, string memory name, uint256 salary, uint256 birthday) public onlyOwner {
+        require(msg.sender != account, "Cannot add oneself");
+        Teammate memory newTeammate = Teammate(name, account, salary, birthday);  // Создание новой структуры сотрудника
+        _teammates.push(newTeammate);                     // Добавление нового сотрудника в массив
+        emit NewTeammate(account, name);                  // Эмиссия события для уведомления о добавлении нового сотрудника
     }
 
-    function findBirthday() public onlyOwner returns(uint256){
-        // it is a good idea to check whether therea are any teammates in the database
-        require(getTeammatesNumber()>0,"No teammates in the database");
-        // what are loops: https://www.youtube.com/watch?v=GwcisLY5avc
-        // so basically we iterate over every Teammate in the _teammates array...
-        for(uint256 i=0;i<getTeammatesNumber();i++){
-        // and check their birthday
-            if(checkBirthday(i)){
-            // if the birthday is today - we return the user
-                return uint256(i);
+    function birthdayPayout() public onlyOwner {
+        for (uint256 i = 0; i < _teammates.length; i++) {
+            if (checkBirthday(i) && !_receivedGifts[_teammates[i].account]) {
+                sendToTeammate(i);
+                _receivedGifts[_teammates[i].account] = true;
+                emit HappyBirthday(_teammates[i].name, _teammates[i].account);
             }
         }
-        // this will revert the transaction if no teammates with birthday are found
-        revert("Noone found");
     }
 
-    // this function is instead of sendToTeammate
-    function birthdayPayout(uint256 index) public onlyOwner {
-    	// send some money to the teammate
-        sendToTeammate(index);
-        // and emit a HeppyBirthday event(just in case)
-        emit HappyBirthday(_teammates[index].name,_teammates[index].account);
+    function getDate(uint256 timestamp) public view returns (uint256 year, uint256 month, uint256 day) {
+        (year, month, day) = BokkyPooBahsDateTimeLibrary.timestampToDate(timestamp);  // Использование внешней библиотеки для преобразования таймстампа в дату
     }
 
-    function getDate(uint256 timestamp) view public returns(uint256 year, uint256 month, uint256 day){
-        (year, month, day) = BokkyPooBahsDateTimeLibrary.timestampToDate(timestamp);
+    function checkBirthday(uint256 index) public view returns (bool) {
+        uint256 birthday = _teammates[index].birthday;    // Получение таймстампа дня рождения сотрудника
+        (, uint256 birthday_month, uint256 birthday_day) = getDate(birthday);  // Получение месяца и дня дня рождения сотрудника
+        uint256 today = block.timestamp;                   // Получение текущего таймстампа
+        (, uint256 today_month, uint256 today_day) = getDate(today);  // Получение месяца и дня текущей даты
+
+        return (birthday_day == today_day && birthday_month == today_month);  // Проверка, совпадает ли день рождения с текущей датой
     }
 
-    function checkBirthday(uint256 index) view public returns(bool){
-        // day & month of today's date == day & month of birthday teammate
-        //block.timestamp = 1671560040
-        //birthday = 877126202
-        //BokkyPooBahsDateTimeLibrary.timestampToDate();
-        uint256 birthday = getTeammate(index).birthday;
-        (, uint256 birthday_month,uint256 birthday_day) = getDate(birthday);
-        uint256 today = block.timestamp;
-        (, uint256 today_month,uint256 today_day) = getDate(today);
-
-        if(birthday_day == today_day && birthday_month==today_month){
-            return true;
-        }
-        return false;
+    function getTeammate(uint256 index) public view returns (Teammate memory) {
+        return _teammates[index];                          // Получение информации о сотруднике по индексу
     }
 
-    function getTeammate(uint256 index) view public returns(Teammate memory){
-        return _teammates[index];
+    function getTeam() public view returns (Teammate[] memory) {
+        return _teammates;                                  // Получение всех сотрудников
     }
 
-    function getTeam() view public returns(Teammate[] memory){
-        return  _teammates;
+    function getTeammatesNumber() public view returns (uint256) {
+        return _teammates.length;                           // Получение количества сотрудников
     }
 
-    function getTeammatesNumber() view public returns(uint256){
-        return _teammates.length;
+    function sendToTeammate(uint256 index) private {
+        payable(_teammates[index].account).transfer(_teammates[index].salary);  // Отправка зарплаты сотруднику
     }
 
-    function sendToTeammate(uint256 index) public onlyOwner{
-        payable(_teammates[index].account).transfer(_teammates[index].salary);
-    }
+    function deposit() public payable {}
 
-    function deposit() public payable{
-
-    }
-
-    modifier onlyOwner{
-        require(msg.sender == _owner,"Sender should be the owner of contract");
+    modifier onlyOwner {
+        require(msg.sender == _owner, "Sender should be the owner of the contract");  // Модификатор для выполнения функций только владельцем контракта
         _;
     }
 
-    event NewTeammate(address account, string name);
-
-    event HappyBirthday(string name, address account);
+    event NewTeammate(address account, string name);        // Событие для уведомления о добавлении нового сотрудника
+    event HappyBirthday(string name, address account);      // Событие для уведомления о подарке сотруднику на день рождения
 }
